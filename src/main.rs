@@ -9,6 +9,7 @@ struct Fish {
     position: Point,
     movement: MovVec,
     move_cnt: u16,
+    color: (u8, u8, u8),
 }
 
 struct Point {
@@ -43,11 +44,16 @@ fn main() {
 
         clock_counter = (clock_counter + 1) % 5;
 
-        let mut aquarium: Vec<Vec<char>> = calculate_aquarium(terminal_width, terminal_height);
+        let mut aquarium: Vec<Vec<String>> = calculate_aquarium(terminal_width, terminal_height);
 
-        for mut fish in &mut fishes {
-            move_fish(&mut fish, terminal_width, terminal_height, &clock_counter);
-            aquarium[fish.position.y][fish.position.x] = fish.sprite;
+        for fish in &mut fishes {
+            move_fish(fish, terminal_width, terminal_height, &clock_counter);
+            // \x1b[38;2;R;G;Bm
+            // \x1b[0m
+            aquarium[fish.position.y][fish.position.x] = format!(
+                "\x1b[38;2;{};{};{}m{}\x1b[0m",
+                fish.color.0, fish.color.1, fish.color.2, fish.sprite
+            );
         }
 
         for line in aquarium {
@@ -56,13 +62,13 @@ fn main() {
     }
 }
 
-fn calculate_aquarium(w: usize, h: usize) -> Vec<Vec<char>> {
-    let bottom_top: Vec<char> = vec!['='; w];
+fn calculate_aquarium(w: usize, h: usize) -> Vec<Vec<String>> {
+    let bottom_top: Vec<String> = vec![String::from("="); w];
 
-    let mut sides: Vec<char> = vec!['|'; w];
-    sides.splice(1..w - 1, vec![' '; w - 2]);
+    let mut sides: Vec<String> = vec![String::from("|"); w];
+    sides.splice(1..w - 1, vec![String::from(" "); w - 2]);
 
-    let mut aquarium: Vec<Vec<char>> = vec![bottom_top; h - 1];
+    let mut aquarium: Vec<Vec<String>> = vec![bottom_top; h - 1];
     aquarium.splice(1..h - 2, vec![sides; h - 3]);
     return aquarium;
 }
@@ -155,6 +161,7 @@ fn spawn_fish(terminal_width: usize, terminal_height: usize) -> Vec<Fish> {
                 y_speed: calculate_speed(0),
             },
             move_cnt: 0,
+            color: (random::<u8>(), random::<u8>(), random::<u8>()),
         };
 
         to_return.push(fish);
