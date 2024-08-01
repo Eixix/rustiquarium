@@ -2,6 +2,10 @@ use std::cmp::max;
 use std::thread::sleep;
 use std::time;
 
+use crossterm::{
+    event::{read, Event, KeyCode, KeyEvent},
+    execute,
+};
 use rand::random;
 
 struct Fish {
@@ -34,30 +38,39 @@ fn main() {
         terminal_height = 1000;
     }
 
-    let mut fishes: Vec<Fish> = spawn_fish(terminal_width, terminal_height);
-    let mut clock_counter: u8 = 0;
+    std::thread::spawn(move || {
+        let mut fishes: Vec<Fish> = spawn_fish(terminal_width, terminal_height);
+        let mut clock_counter: u8 = 0;
+
+        loop {
+            // Clear terminal
+            print!("{}[2J", 27 as char);
+            sleep(time::Duration::from_millis(100));
+
+            clock_counter = (clock_counter + 1) % 5;
+
+            let mut aquarium: Vec<Vec<String>> =
+                calculate_aquarium(terminal_width, terminal_height);
+
+            for fish in &mut fishes {
+                move_fish(fish, terminal_width, terminal_height, &clock_counter);
+                // \x1b[38;2;R;G;Bm
+                // \x1b[0m
+                aquarium[fish.position.y][fish.position.x] = format!(
+                    "\x1b[38;2;{};{};{}m{}\x1b[0m",
+                    fish.color.0, fish.color.1, fish.color.2, fish.sprite
+                );
+            }
+
+            for line in aquarium {
+                println!("{}", String::from_iter(line))
+            }
+        }
+    });
 
     loop {
-        // Clear terminal
-        print!("{}[2J", 27 as char);
-        sleep(time::Duration::from_millis(100));
-
-        clock_counter = (clock_counter + 1) % 5;
-
-        let mut aquarium: Vec<Vec<String>> = calculate_aquarium(terminal_width, terminal_height);
-
-        for fish in &mut fishes {
-            move_fish(fish, terminal_width, terminal_height, &clock_counter);
-            // \x1b[38;2;R;G;Bm
-            // \x1b[0m
-            aquarium[fish.position.y][fish.position.x] = format!(
-                "\x1b[38;2;{};{};{}m{}\x1b[0m",
-                fish.color.0, fish.color.1, fish.color.2, fish.sprite
-            );
-        }
-
-        for line in aquarium {
-            println!("{}", String::from_iter(line))
+        if read_input_keys() {
+            break;
         }
     }
 }
@@ -71,6 +84,17 @@ fn calculate_aquarium(w: usize, h: usize) -> Vec<Vec<String>> {
     let mut aquarium: Vec<Vec<String>> = vec![bottom_top; h - 1];
     aquarium.splice(1..h - 2, vec![sides; h - 3]);
     return aquarium;
+}
+
+fn read_input_keys() -> bool {
+    if let Event::Key(key) = read().unwrap() {
+        match key.code {
+            KeyCode::Char('q') => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
 }
 
 fn move_fish(fish: &mut Fish, terminal_width: usize, terminal_height: usize, clock_counter: &u8) {
